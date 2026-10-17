@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Royal Match-3 Kingdom (Colorblind Accessible)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Outfit:wght@500;700;800&display=swap');
+
+    body {
+      font-family: 'Fredoka', sans-serif;
+      background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+      color: #f8fafc;
+      touch-action: manipulation;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .font-outfit {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Glassmorphism Cards */
+    .glass-card {
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(12px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .glass-pill {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Gold Glow Text */
+    .glow-gold {
+      text-shadow: 0 0 12px rgba(245, 158, 11, 0.7), 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    /* Pulse animation for buttons */
+    @keyframes pulse-btn {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .animate-pulse-btn {
+      animation: pulse-btn 2s infinite ease-in-out;
+    }
+
+    /* Canvas shadow border */
+    .canvas-wrapper {
+      box-shadow: 0 0 30px rgba(124, 58, 237, 0.3), 0 10px 25px rgba(0, 0, 0, 0.7);
+      border: 2px solid rgba(255, 255, 255, 0.18);
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 md:p-4 select-none">
+
+  <!-- Main Game Container -->
+  <div class="relative w-full max-w-2xl flex flex-col items-center">
+    
+    <!-- Top Royal Header HUD -->
+    <header class="w-full glass-card rounded-2xl p-3 md:p-4 mb-3 flex items-center justify-between shadow-2xl relative z-10">
+      
+      <!-- Moves Left Badge -->
+      <div class="flex flex-col items-center justify-center bg-gradient-to-b from-amber-500 to-amber-700 px-4 py-1.5 rounded-xl border-2 border-amber-300 shadow-lg min-w-[75px] md:min-w-[90px]">
+        <span class="text-[10px] md:text-xs font-bold text-amber-100 uppercase tracking-wider">ターン</span>
+        <span id="moves-left" class="text-2xl md:text-3xl font-outfit font-black text-white glow-gold leading-none">25</span>
+      </div>
+
+      <!-- Level & Targets Container -->
+      <div class="flex flex-col items-center flex-1 px-2">
+        <div id="level-title" class="text-xs md:text-sm font-outfit font-bold text-amber-400 tracking-wide uppercase mb-1">
+          ステージ 1
+        </div>
+        <!-- Target Items Row -->
+        <div id="targets-container" class="flex items-center justify-center space-x-2 md:space-x-4">
+          <!-- Dynamically Populated Goals -->
+        </div>
+      </div>
+
+      <!-- Score Box -->
+      <div class="flex flex-col items-end justify-center min-w-[80px]">
+        <span class="text-[10px] md:text-xs text-slate-400 font-bold tracking-wider">スコア</span>
+        <span id="score-display" class="text-lg md:text-2xl font-outfit font-extrabold text-cyan-300">0</span>
+      </div>
+    </header>
+
+    <!-- Canvas Game Board Viewport -->
+    <div class="relative w-full canvas-wrapper rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center">
+      
+      <!-- HTML5 Canvas -->
+      <canvas id="gameCanvas" class="block w-full h-auto max-h-[75vh] touch-none cursor-pointer"></canvas>
+
+      <!-- Overlay: Start Screen -->
+      <div id="start-overlay" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 overflow-y-auto">
+        <div class="w-16 h-16 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/40 mb-3 transform rotate-6 border-2 border-amber-200">
+          <i class="fa-solid fa-crown text-3xl text-slate-950"></i>
+        </div>
+        <h1 class="text-3xl md:text-5xl font-outfit font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 mb-1 glow-gold">
+          ロイヤルマッチ
+        </h1>
+        <p class="text-emerald-400 text-xs md:text-sm font-bold mb-3 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+          <i class="fa-solid fa-eye mr-1"></i> 色覚サポート対応 (形とマークで識別可能)
+        </p>
+        <p class="text-slate-300 text-xs md:text-sm max-w-sm mb-4 leading-relaxed">
+          同じ「形・シンボル」のブロックを3つ以上揃えて消そう！4つ以上揃えると強力なブースターが出現！
+        </p>
+
+        <!-- Block Symbol Guide -->
+        <div class="grid grid-cols-5 gap-1.5 max-w-xs w-full mb-4 text-center">
+          <div class="glass-pill p-1.5 rounded-lg flex flex-col items-center">
+            <i class="fa-solid fa-gem text-rose-500 text-base mb-0.5"></i>
+            <span class="text-[10px] text-slate-300 font-bold">ルビー</span>
+          </div>
+          <div class="glass-pill p-1.5 rounded-lg flex flex-col items-center">
+            <i class="fa-solid fa-shield-halved text-sky-400 text-base mb-0.5"></i>
+            <span class="text-[10px] text-slate-300 font-bold">シールド</span>
+          </div>
+          <div class="glass-pill p-1.5 rounded-lg flex flex-col items-center">
+            <i class="fa-solid fa-clover text-emerald-400 text-base mb-0.5"></i>
+            <span class="text-[10px] text-slate-300 font-bold">クローバ</span>
+          </div>
+          <div class="glass-pill p-1.5 rounded-lg flex flex-col items-center">
+            <i class="fa-solid fa-star text-amber-300 text-base mb-0.5"></i>
+            <span class="text-[10px] text-slate-300 font-bold">スター</span>
+          </div>
+          <div class="glass-pill p-1.5 rounded-lg flex flex-col items-center">
+            <i class="fa-solid fa-heart text-purple-400 text-base mb-0.5"></i>
+            <span class="text-[10px] text-slate-300 font-bold">ハート</span>
+          </div>
+        </div>
+
+        <!-- Booster Legend -->
+        <div class="grid grid-cols-2 gap-2 max-w-xs w-full mb-5 text-left text-xs text-slate-300">
+          <div class="glass-pill p-2 rounded-lg flex items-center space-x-2">
+            <i class="fa-solid fa-rocket text-amber-400 text-sm"></i>
+            <span>ロケット (4個直線)</span>
+          </div>
+          <div class="glass-pill p-2 rounded-lg flex items-center space-x-2">
+            <i class="fa-solid fa-fan text-cyan-400 text-sm"></i>
+            <span>プロペラ (2x2正方形)</span>
+          </div>
+          <div class="glass-pill p-2 rounded-lg flex items-center space-x-2">
+            <i class="fa-solid fa-bomb text-red-400 text-sm"></i>
+            <span>TNT爆弾 (T/L字)</span>
+          </div>
+          <div class="glass-pill p-2 rounded-lg flex items-center space-x-2">
+            <i class="fa-solid fa-crown text-yellow-300 text-sm"></i>
+            <span>王冠 (5個直線)</span>
+          </div>
+        </div>
+
+        <button id="start-btn" class="animate-pulse-btn font-outfit font-extrabold px-8 py-3.5 text-lg rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 shadow-lg shadow-amber-500/30 transition-all border-2 border-amber-200 flex items-center space-x-2">
+          <span>ゲームスタート</span>
+          <i class="fa-solid fa-play text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Overlay: Level Victory -->
+      <div id="victory-overlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+        <div class="text-amber-400 text-5xl md:text-6xl mb-2 animate-bounce">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <h2 class="text-3xl md:text-5xl font-outfit font-black text-amber-300 mb-1 glow-gold">ステージクリア!</h2>
+        <p class="text-slate-300 text-sm mb-6">目標達成おめでとうございます！</p>
+
+        <div class="glass-card rounded-2xl p-4 w-full max-w-xs mb-6 space-y-2">
+          <div class="flex justify-between text-slate-300 text-sm">
+            <span>残ターン数:</span>
+            <span id="victory-moves" class="font-outfit text-amber-400 font-bold">0</span>
+          </div>
+          <div class="flex justify-between text-slate-300 text-sm">
+            <span>ボーナススコア:</span>
+            <span id="victory-bonus" class="font-outfit text-emerald-400 font-bold">+0</span>
+          </div>
+          <div class="flex justify-between text-slate-300 text-sm pt-2 border-t border-slate-700">
+            <span>合計スコア:</span>
+            <span id="victory-total-score" class="font-outfit text-xl text-cyan-300 font-extrabold">0</span>
+          </div>
+        </div>
+
+        <button id="next-level-btn" class="animate-pulse-btn font-outfit font-bold px-8 py-3.5 text-lg rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 shadow-lg shadow-emerald-500/30 transition-all border-2 border-emerald-200 flex items-center space-x-2">
+          <span>次のステージへ</span>
+          <i class="fa-solid fa-forward text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Overlay: Game Over (Out of Moves) -->
+      <div id="gameover-overlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+        <div class="text-red-400 text-5xl mb-2">
+          <i class="fa-solid fa-heart-crack"></i>
+        </div>
+        <h2 class="text-3xl md:text-5xl font-outfit font-black text-red-500 mb-1">ターン切れ</h2>
+        <p class="text-slate-400 text-sm mb-6">もう一度挑戦しましょう！</p>
+
+        <button id="retry-btn" class="font-outfit font-bold px-8 py-3.5 text-lg rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-lg shadow-cyan-500/30 transition-all border-2 border-cyan-300 flex items-center space-x-2">
+          <i class="fa-solid fa-rotate-right text-sm"></i>
+          <span>リトライ</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Bottom Controls Footer -->
+    <footer class="w-full flex justify-between items-center mt-3 px-2 text-slate-400 text-xs">
+      <div class="flex items-center space-x-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>ブロックをスライド/タップして移動</span>
+      </div>
+      <button id="audio-toggle" class="hover:text-amber-300 flex items-center space-x-1 transition-colors">
+        <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+        <span id="audio-label">サウンド ON</span>
+      </button>
+    </footer>
+
+  </div>
+
+  <!-- Game Logic Engine -->
+  <script>
+    /**
+     * Web Audio API Synthesizer Sound Engine
+     */
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+      }
+
+      playTone(freq, type = 'sine', duration = 0.1, startVol = 0.3, endVol = 0.01) {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(startVol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(endVol, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      }
+
+      playSwap() {
+        this.playTone(320, 'triangle', 0.08, 0.2);
+      }
+
+      playMatch() {
+        if (this.muted || !this.ctx) return;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          setTimeout(() => this.playTone(freq, 'sine', 0.12, 0.25), idx * 45);
+        });
+      }
+
+      playSpecial() {
+        if (this.muted || !this.ctx) return;
+        const freqs = [400, 600, 800, 1200, 1600];
+        freqs.forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'triangle', 0.1, 0.3), i * 35);
+        });
+      }
+
+      playExplosion() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const bufferSize = this.ctx.sampleRate * 0.25;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+          filter.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.25);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+          noise.start();
+        } catch (e) {}
+      }
+
+      playWin() {
+        if (this.muted || !this.ctx) return;
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        notes.forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'sine', 0.25, 0.4), i * 90);
+        });
+      }
+    }
+
+    const sound = new SoundFX();
+
+    /**
+     * Board & Colorblind-Accessible Block Data Structures
+     */
+    const GRID_SIZE = 8;
+    const CANVAS_DIM = 640;
+    const TILE_SIZE = CANVAS_DIM / GRID_SIZE;
+
+    // Distinct Shapes, Icons, High-contrast colors
+    const GEM_TYPES = [
+      { id: 0, name: 'Ruby', color: '#f43f5e', lightColor: '#fda4af', shape: 'diamond', glow: 'rgba(244, 63, 94, 0.8)', icon: 'fa-gem' },
+      { id: 1, name: 'Shield', color: '#0284c7', lightColor: '#38bdf8', shape: 'shield', glow: 'rgba(56, 189, 248, 0.8)', icon: 'fa-shield-halved' },
+      { id: 2, name: 'Clover', color: '#10b981', lightColor: '#6ee7b7', shape: 'square', glow: 'rgba(16, 185, 129, 0.8)', icon: 'fa-clover' },
+      { id: 3, name: 'Star', color: '#eab308', lightColor: '#fef08a', shape: 'star', glow: 'rgba(234, 179, 8, 0.8)', icon: 'fa-star' },
+      { id: 4, name: 'Heart', color: '#a855f7', lightColor: '#f0abfc', shape: 'heart', glow: 'rgba(168, 85, 247, 0.8)', icon: 'fa-heart' }
+    ];
+
+    // Booster Types
+    const BOOSTERS = {
+      ROCKET_H: 'ROCKET_H',
+      ROCKET_V: 'ROCKET_V',
+      PROPELLER: 'PROPELLER',
+      TNT: 'TNT',
+      CROWN: 'CROWN'
+    };
+
+    // Stage Configurations
+    const STAGES = [
+      {
+        level: 1,
+        moves: 22,
+        targets: [
+          { type: 0, required: 15, current: 0 }, // Red Gems
+          { type: 1, required: 15, current: 0 }  // Blue Shields
+        ]
+      },
+      {
+        level: 2,
+        moves: 20,
+        targets: [
+          { type: 2, required: 18, current: 0 }, // Green Clovers
+          { type: 3, required: 18, current: 0 }  // Yellow Stars
+        ]
+      },
+      {
+        level: 3,
+        moves: 18,
+        targets: [
+          { type: 0, required: 20, current: 0 },
+          { type: 1, required: 20, current: 0 },
+          { type: 4, required: 15, current: 0 }  // Purple Hearts
+        ]
+      }
+    ];
+
+    class RoyalMatchGame {
+      constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+
+        this.canvas.width = CANVAS_DIM;
+        this.canvas.height = CANVAS_DIM;
+
+        this.currentStageIdx = 0;
+        this.score = 0;
+        this.movesLeft = 0;
+        this.targets = [];
+        this.grid = []; // 2D array [row][col]
+
+        this.gameState = 'START'; // START, PLAYING, ANIMATING, GAMEOVER, VICTORY
+        this.selectedTile = null; // {row, col}
+        this.dragStartPos = null;
+
+        this.particles = [];
+        this.floatingTexts = [];
+        this.screenShake = 0;
+
+        this.initDOM();
+        this.initEvents();
+
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      initDOM() {
+        document.getElementById('start-btn').onclick = () => {
+          sound.init();
+          this.startStage(0);
+        };
+
+        document.getElementById('next-level-btn').onclick = () => {
+          const nextIdx = (this.currentStageIdx + 1) % STAGES.length;
+          this.startStage(nextIdx);
+        };
+
+        document.getElementById('retry-btn').onclick = () => {
+          this.startStage(this.currentStageIdx);
+        };
+
+        document.getElementById('audio-toggle').onclick = () => {
+          sound.muted = !sound.muted;
+          document.getElementById('audio-icon').className = sound.muted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+          document.getElementById('audio-label').innerText = sound.muted ? 'サウンド OFF' : 'サウンド ON';
+        };
+      }
+
+      initEvents() {
+        const getCanvasCoords = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          return {
+            x: (clientX - rect.left) * (CANVAS_DIM / rect.width),
+            y: (clientY - rect.top) * (CANVAS_DIM / rect.height)
+          };
+        };
+
+        const handlePointerDown = (e) => {
+          if (this.gameState !== 'PLAYING') return;
+          sound.init();
+          const pos = getCanvasCoords(e);
+          const col = Math.floor(pos.x / TILE_SIZE);
+          const row = Math.floor(pos.y / TILE_SIZE);
+
+          if (this.isValidCell(row, col)) {
+            this.selectedTile = { row, col };
+            this.dragStartPos = pos;
+          }
+        };
+
+        const handlePointerMove = (e) => {
+          if (!this.selectedTile || !this.dragStartPos || this.gameState !== 'PLAYING') return;
+          const pos = getCanvasCoords(e);
+          const dx = pos.x - this.dragStartPos.x;
+          const dy = pos.y - this.dragStartPos.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist > 18) {
+            let targetRow = this.selectedTile.row;
+            let targetCol = this.selectedTile.col;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+              targetCol += dx > 0 ? 1 : -1;
+            } else {
+              targetRow += dy > 0 ? 1 : -1;
+            }
+
+            if (this.isValidCell(targetRow, targetCol)) {
+              this.attemptSwap(this.selectedTile, { row: targetRow, col: targetCol });
+            }
+
+            this.selectedTile = null;
+            this.dragStartPos = null;
+          }
+        };
+
+        const handlePointerUp = () => {
+          this.selectedTile = null;
+          this.dragStartPos = null;
+        };
+
+        this.canvas.addEventListener('mousedown', handlePointerDown);
+        this.canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        this.canvas.addEventListener('touchstart', (e) => handlePointerDown(e), { passive: true });
+        this.canvas.addEventListener('touchmove', (e) => handlePointerMove(e), { passive: true });
+        this.canvas.addEventListener('touchend', handlePointerUp);
+      }
+
+      isValidCell(r, c) {
+        return r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE;
+      }
+
+      startStage(stageIdx) {
+        this.currentStageIdx = stageIdx;
+        const config = STAGES[stageIdx];
+
+        this.movesLeft = config.moves;
+        this.targets = config.targets.map(t => ({ ...t, current: 0 }));
+        this.score = 0;
+
+        document.getElementById('start-overlay').classList.add('hidden');
+        document.getElementById('victory-overlay').classList.add('hidden');
+        document.getElementById('gameover-overlay').classList.add('hidden');
+
+        this.buildInitialBoard();
+        this.updateHUD();
+        this.gameState = 'PLAYING';
+      }
+
+      buildInitialBoard() {
+        let hasMatches = true;
+        while (hasMatches) {
+          this.grid = [];
+          for (let r = 0; r < GRID_SIZE; r++) {
+            this.grid[r] = [];
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const type = Math.floor(Math.random() * GEM_TYPES.length);
+              this.grid[r][c] = {
+                type,
+                booster: null,
+                x: c * TILE_SIZE,
+                y: r * TILE_SIZE,
+                scale: 1,
+                alpha: 1
+              };
+            }
+          }
+          hasMatches = this.findMatches().matches.length > 0;
+        }
+      }
+
+      updateHUD() {
+        document.getElementById('level-title').innerText = `ステージ ${this.currentStageIdx + 1}`;
+        document.getElementById('moves-left').innerText = this.movesLeft;
+        document.getElementById('score-display').innerText = this.score.toLocaleString();
+
+        const targetsContainer = document.getElementById('targets-container');
+        targetsContainer.innerHTML = '';
+
+        this.targets.forEach(tgt => {
+          const gem = GEM_TYPES[tgt.type];
+          const remaining = Math.max(0, tgt.required - tgt.current);
+          const isComplete = remaining === 0;
+
+          const targetEl = document.createElement('div');
+          targetEl.className = 'flex items-center space-x-1.5 glass-pill px-2.5 py-1 rounded-lg border border-slate-700';
+          targetEl.innerHTML = `
+            <i class="fa-solid ${gem.icon} text-sm" style="color: ${gem.color}"></i>
+            <span class="text-xs font-bold ${isComplete ? 'text-emerald-400' : 'text-white'}">
+              ${isComplete ? '<i class="fa-solid fa-check text-emerald-400"></i>' : remaining}
+            </span>
+          `;
+          targetsContainer.appendChild(targetEl);
+        });
+      }
+
+      async attemptSwap(cell1, cell2) {
+        if (this.gameState !== 'PLAYING') return;
+        this.gameState = 'ANIMATING';
+
+        const t1 = this.grid[cell1.row] ? this.grid[cell1.row][cell1.col] : null;
+        const t2 = this.grid[cell2.row] ? this.grid[cell2.row][cell2.col] : null;
+
+        if (!t1 || !t2) {
+          this.gameState = 'PLAYING';
+          return;
+        }
+
+        // Animate visually swap
+        sound.playSwap();
+        await this.animateSwap(t1, t2);
+
+        // Perform actual array swap
+        this.grid[cell1.row][cell1.col] = t2;
+        this.grid[cell2.row][cell2.col] = t1;
+
+        // Special Booster Combos
+        if (t1.booster && t2.booster) {
+          this.movesLeft--;
+          this.updateHUD();
+          await this.triggerBoosterCombo(cell1, cell2, t1.booster, t2.booster);
+          await this.processCascades();
+          return;
+        }
+
+        // Single booster
+        if (t1.booster && !t2.booster) {
+          this.movesLeft--;
+          this.updateHUD();
+          await this.activateBooster(cell1.row, cell1.col, t1.booster);
+          await this.processCascades();
+          return;
+        } else if (t2.booster && !t1.booster) {
+          this.movesLeft--;
+          this.updateHUD();
+          await this.activateBooster(cell2.row, cell2.col, t2.booster);
+          await this.processCascades();
+          return;
+        }
+
+        // Check normal matches
+        const matchResult = this.findMatches();
+
+        if (matchResult.matches.length > 0) {
+          this.movesLeft--;
+          this.updateHUD();
+          await this.processMatchResults(matchResult);
+          await this.processCascades();
+        } else {
+          // Revert swap if invalid
+          sound.playSwap();
+          await this.animateSwap(t1, t2);
+          this.grid[cell1.row][cell1.col] = t1;
+          this.grid[cell2.row][cell2.col] = t2;
+          this.gameState = 'PLAYING';
+        }
+      }
+
+      async animateSwap(t1, t2) {
+        const steps = 8;
+        const dx1 = (t2.x - t1.x) / steps;
+        const dy1 = (t2.y - t1.y) / steps;
+        const dx2 = (t1.x - t2.x) / steps;
+        const dy2 = (t1.y - t2.y) / steps;
+
+        for (let i = 0; i < steps; i++) {
+          t1.x += dx1;
+          t1.y += dy1;
+          t2.x += dx2;
+          t2.y += dy2;
+          await new Promise(res => setTimeout(res, 16));
+        }
+
+        const tempX = t1.x; const tempY = t1.y;
+        t1.x = t2.x; t1.y = t2.y;
+        t2.x = tempX; t2.y = tempY;
+      }
+
+      findMatches() {
+        const matches = new Set();
+        const horizontalRuns = [];
+        const verticalRuns = [];
+
+        // Check horizontal lines
+        for (let r = 0; r < GRID_SIZE; r++) {
+          if (!this.grid[r]) continue;
+          let runLength = 1;
+          for (let c = 0; c < GRID_SIZE; c++) {
+            let checkNext = false;
+            if (c < GRID_SIZE - 1 && this.grid[r][c] && this.grid[r][c + 1] &&
+                this.grid[r][c].type === this.grid[r][c + 1].type) {
+              runLength++;
+              checkNext = true;
+            }
+
+            if (!checkNext || c === GRID_SIZE - 1) {
+              if (runLength >= 3) {
+                const runCells = [];
+                for (let i = 0; i < runLength; i++) {
+                  const colIdx = c - (checkNext ? 0 : 1) - i + (checkNext ? 1 : 0);
+                  runCells.push({ row: r, col: colIdx });
+                  matches.add(`${r},${colIdx}`);
+                }
+                horizontalRuns.push(runCells);
+              }
+              runLength = 1;
+            }
+          }
+        }
+
+        // Check vertical lines
+        for (let c = 0; c < GRID_SIZE; c++) {
+          let runLength = 1;
+          for (let r = 0; r < GRID_SIZE; r++) {
+            let checkNext = false;
+            if (r < GRID_SIZE - 1 && this.grid[r] && this.grid[r + 1] &&
+                this.grid[r][c] && this.grid[r + 1][c] &&
+                this.grid[r][c].type === this.grid[r + 1][c].type) {
+              runLength++;
+              checkNext = true;
+            }
+
+            if (!checkNext || r === GRID_SIZE - 1) {
+              if (runLength >= 3) {
+                const runCells = [];
+                for (let i = 0; i < runLength; i++) {
+                  const rowIdx = r - (checkNext ? 0 : 1) - i + (checkNext ? 1 : 0);
+                  runCells.push({ row: rowIdx, col: c });
+                  matches.add(`${rowIdx},${c}`);
+                }
+                verticalRuns.push(runCells);
+              }
+              runLength = 1;
+            }
+          }
+        }
+
+        // Detect 2x2 Squares (Propeller)
+        const squares = [];
+        for (let r = 0; r < GRID_SIZE - 1; r++) {
+          for (let c = 0; c < GRID_SIZE - 1; c++) {
+            if (!this.grid[r] || !this.grid[r + 1]) continue;
+            const t1 = this.grid[r][c];
+            const t2 = this.grid[r + 1][c];
+            const t3 = this.grid[r][c + 1];
+            const t4 = this.grid[r + 1][c + 1];
+
+            if (t1 && t2 && t3 && t4 &&
+                t1.type === t2.type && t2.type === t3.type && t3.type === t4.type) {
+              squares.push({ row: r, col: c });
+            }
+          }
+        }
+
+        return {
+          matches: Array.from(matches).map(s => {
+            const [row, col] = s.split(',').map(Number);
+            return { row, col };
+          }),
+          horizontalRuns,
+          verticalRuns,
+          squares
+        };
+      }
+
+      async processMatchResults(matchResult) {
+        sound.playMatch();
+        const { matches, horizontalRuns, verticalRuns, squares } = matchResult;
+
+        let boosterToCreate = null;
+
+        // Priority 1: Match 5 -> Crown
+        const line5 = horizontalRuns.find(r => r.length >= 5) || verticalRuns.find(r => r.length >= 5);
+        if (line5) {
+          const centerCell = line5[Math.floor(line5.length / 2)];
+          boosterToCreate = { ...centerCell, type: BOOSTERS.CROWN };
+        } 
+        // Priority 2: Match L/T shape -> TNT
+        else if (horizontalRuns.length > 0 && verticalRuns.length > 0) {
+          const intersect = horizontalRuns[0].find(hc => verticalRuns[0].some(vc => vc.row === hc.row && vc.col === hc.col));
+          if (intersect) {
+            boosterToCreate = { ...intersect, type: BOOSTERS.TNT };
+          }
+        }
+        // Priority 3: 2x2 Square -> Propeller
+        else if (squares.length > 0) {
+          boosterToCreate = { ...squares[0], type: BOOSTERS.PROPELLER };
+        }
+        // Priority 4: Line 4 -> Rocket
+        else if (horizontalRuns.some(r => r.length === 4) || verticalRuns.some(r => r.length === 4)) {
+          const line4 = horizontalRuns.find(r => r.length === 4) || verticalRuns.find(r => r.length === 4);
+          const centerCell = line4[1];
+          const isVert = verticalRuns.some(r => r.length === 4);
+          boosterToCreate = { ...centerCell, type: isVert ? BOOSTERS.ROCKET_V : BOOSTERS.ROCKET_H };
+        }
+
+        // Clear Matched Tiles
+        matches.forEach(({ row, col }) => {
+          if (!this.grid[row]) return;
+          const tile = this.grid[row][col];
+          if (tile) {
+            this.trackTargetProgress(tile.type);
+            this.createBurstParticles(cToX(col), rToY(row), GEM_TYPES[tile.type].color);
+            this.addScore(100, cToX(col), rToY(row));
+
+            if (!(boosterToCreate && boosterToCreate.row === row && boosterToCreate.col === col)) {
+              this.grid[row][col] = null;
+            }
+          }
+        });
+
+        // Instantiate Booster if earned
+        if (boosterToCreate && this.grid[boosterToCreate.row]) {
+          sound.playSpecial();
+          this.grid[boosterToCreate.row][boosterToCreate.col] = {
+            type: Math.floor(Math.random() * GEM_TYPES.length),
+            booster: boosterToCreate.type,
+            x: boosterToCreate.col * TILE_SIZE,
+            y: boosterToCreate.row * TILE_SIZE,
+            scale: 1,
+            alpha: 1
+          };
+          this.addScore(300, cToX(boosterToCreate.col), rToY(boosterToCreate.row), 'SPECIAL!');
+        }
+
+        this.updateHUD();
+        await new Promise(res => setTimeout(res, 200));
+      }
+
+      async activateBooster(r, c, boosterType) {
+        sound.playExplosion();
+        this.triggerScreenShake(12);
+
+        if (this.grid[r]) this.grid[r][c] = null;
+
+        if (boosterType === BOOSTERS.ROCKET_H || boosterType === BOOSTERS.ROCKET_V) {
+          const isHoriz = boosterType === BOOSTERS.ROCKET_H;
+          for (let i = 0; i < GRID_SIZE; i++) {
+            const row = isHoriz ? r : i;
+            const col = isHoriz ? i : c;
+            this.destroyTileAt(row, col);
+          }
+        } else if (boosterType === BOOSTERS.TNT) {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              this.destroyTileAt(r + dr, c + dc);
+            }
+          }
+        } else if (boosterType === BOOSTERS.PROPELLER) {
+          const unfulfilledTarget = this.targets.find(t => t.current < t.required);
+          let targetCoord = null;
+
+          if (unfulfilledTarget) {
+            for (let row = 0; row < GRID_SIZE; row++) {
+              for (let col = 0; col < GRID_SIZE; col++) {
+                if (this.grid[row] && this.grid[row][col] && this.grid[row][col].type === unfulfilledTarget.type) {
+                  targetCoord = { row, col };
+                  break;
+                }
+              }
+              if (targetCoord) break;
+            }
+          }
+
+          if (!targetCoord) {
+            targetCoord = { row: Math.floor(Math.random() * GRID_SIZE), col: Math.floor(Math.random() * GRID_SIZE) };
+          }
+
+          this.destroyTileAt(targetCoord.row, targetCoord.col);
+        } else if (boosterType === BOOSTERS.CROWN) {
+          const chosenType = Math.floor(Math.random() * GEM_TYPES.length);
+          for (let row = 0; row < GRID_SIZE; row++) {
+            for (let col = 0; col < GRID_SIZE; col++) {
+              if (this.grid[row] && this.grid[row][col] && this.grid[row][col].type === chosenType) {
+                this.destroyTileAt(row, col);
+              }
+            }
+          }
+        }
+
+        this.updateHUD();
+        await new Promise(res => setTimeout(res, 220));
+      }
+
+      async triggerBoosterCombo(c1, c2, b1, b2) {
+        sound.playWin();
+        this.triggerScreenShake(20);
+
+        for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+            if (Math.random() > 0.3) {
+              this.destroyTileAt(r, c);
+            }
+          }
+        }
+
+        this.addScore(2000, CANVAS_DIM / 2, CANVAS_DIM / 2, 'ROYAL COMBO!');
+        this.updateHUD();
+        await new Promise(res => setTimeout(res, 300));
+      }
+
+      destroyTileAt(r, c) {
+        if (this.isValidCell(r, c) && this.grid[r] && this.grid[r][c]) {
+          const tile = this.grid[r][c];
+          this.trackTargetProgress(tile.type);
+          this.createBurstParticles(cToX(c), rToY(r), GEM_TYPES[tile.type].color);
+          this.addScore(50, cToX(c), rToY(r));
+          this.grid[r][c] = null;
+        }
+      }
+
+      async processCascades() {
+        let matchesFound = true;
+        let comboCount = 0;
+
+        while (matchesFound) {
+          await this.applyGravity();
+          await new Promise(res => setTimeout(res, 180));
+
+          const matchResult = this.findMatches();
+          if (matchResult.matches.length > 0) {
+            comboCount++;
+            if (comboCount > 1) {
+              this.addScore(comboCount * 200, CANVAS_DIM / 2, 100, `COMBO x${comboCount}`);
+            }
+            await this.processMatchResults(matchResult);
+          } else {
+            matchesFound = false;
+          }
+        }
+
+        this.checkGameEndCondition();
+      }
+
+      async applyGravity() {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          let emptyRow = GRID_SIZE - 1;
+          for (let r = GRID_SIZE - 1; r >= 0; r--) {
+            if (this.grid[r] && this.grid[r][c] !== null) {
+              if (r !== emptyRow) {
+                if (!this.grid[emptyRow]) this.grid[emptyRow] = [];
+                this.grid[emptyRow][c] = this.grid[r][c];
+                this.grid[emptyRow][c].y = emptyRow * TILE_SIZE;
+                this.grid[r][c] = null;
+              }
+              emptyRow--;
+            }
+          }
+
+          for (let r = emptyRow; r >= 0; r--) {
+            if (!this.grid[r]) this.grid[r] = [];
+            const type = Math.floor(Math.random() * GEM_TYPES.length);
+            this.grid[r][c] = {
+              type,
+              booster: null,
+              x: c * TILE_SIZE,
+              y: r * TILE_SIZE,
+              scale: 1,
+              alpha: 1
+            };
+          }
+        }
+      }
+
+      trackTargetProgress(typeId) {
+        const target = this.targets.find(t => t.type === typeId);
+        if (target && target.current < target.required) {
+          target.current++;
+        }
+      }
+
+      addScore(amount, x, y, label = '') {
+        this.score += amount;
+        if (x !== undefined && y !== undefined) {
+          this.floatingTexts.push({
+            x, y,
+            text: label ? `${label} +${amount}` : `+${amount}`,
+            color: label ? '#f59e0b' : '#38bdf8',
+            life: 0.8,
+            maxLife: 0.8
+          });
+        }
+      }
+
+      triggerScreenShake(intensity = 10) {
+        this.screenShake = intensity;
+      }
+
+      checkGameEndCondition() {
+        const allTargetsComplete = this.targets.every(t => t.current >= t.required);
+
+        if (allTargetsComplete) {
+          sound.playWin();
+          this.gameState = 'VICTORY';
+          const bonus = this.movesLeft * 250;
+          const total = this.score + bonus;
+
+          document.getElementById('victory-moves').innerText = this.movesLeft;
+          document.getElementById('victory-bonus').innerText = `+${bonus.toLocaleString()}`;
+          document.getElementById('victory-total-score').innerText = total.toLocaleString();
+          document.getElementById('victory-overlay').classList.remove('hidden');
+        } else if (this.movesLeft <= 0) {
+          this.gameState = 'GAMEOVER';
+          document.getElementById('gameover-overlay').classList.remove('hidden');
+        } else {
+          this.gameState = 'PLAYING';
+        }
+      }
+
+      loop(timestamp) {
+        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+        this.lastTime = timestamp;
+
+        this.updateEffects(dt);
+        this.draw();
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      updateEffects(dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx * 60 * dt;
+          p.y += p.vy * 60 * dt;
+          p.life -= dt;
+          if (p.life <= 0) this.particles.splice(i, 1);
+        }
+
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = this.floatingTexts[i];
+          ft.y -= 30 * dt;
+          ft.life -= dt;
+          if (ft.life <= 0) this.floatingTexts.splice(i, 1);
+        }
+
+        if (this.screenShake > 0) {
+          this.screenShake -= dt * 30;
+        }
+      }
+
+      createBurstParticles(x, y, color) {
+        for (let i = 0; i < 12; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 6;
+          this.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            color,
+            radius: 3 + Math.random() * 3,
+            life: 0.4 + Math.random() * 0.3,
+            maxLife: 0.7
+          });
+        }
+      }
+
+      draw() {
+        this.ctx.save();
+
+        if (this.screenShake > 0) {
+          const ox = (Math.random() - 0.5) * this.screenShake;
+          const oy = (Math.random() - 0.5) * this.screenShake;
+          this.ctx.translate(ox, oy);
+        }
+
+        // Background
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillRect(0, 0, CANVAS_DIM, CANVAS_DIM);
+
+        this.drawGridBackground();
+        this.drawTiles();
+        this.drawParticles();
+        this.drawFloatingText();
+
+        this.ctx.restore();
+      }
+
+      drawGridBackground() {
+        for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+            const isEven = (r + c) % 2 === 0;
+            this.ctx.fillStyle = isEven ? 'rgba(30, 41, 59, 0.5)' : 'rgba(15, 23, 42, 0.5)';
+            this.ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            this.ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+
+      drawTiles() {
+        for (let r = 0; r < GRID_SIZE; r++) {
+          if (!this.grid[r]) continue;
+          for (let c = 0; c < GRID_SIZE; c++) {
+            const tile = this.grid[r][c];
+            if (!tile) continue;
+
+            const x = tile.x + 4;
+            const y = tile.y + 4;
+            const size = TILE_SIZE - 8;
+            const cx = x + size / 2;
+            const cy = y + size / 2;
+
+            const gem = GEM_TYPES[tile.type];
+            const isSelected = this.selectedTile && this.selectedTile.row === r && this.selectedTile.col === c;
+
+            this.ctx.save();
+
+            // Highlight outline for selection
+            if (isSelected) {
+              this.ctx.strokeStyle = '#f59e0b';
+              this.ctx.lineWidth = 4;
+              this.roundRect(x - 2, y - 2, size + 4, size + 4, 14);
+              this.ctx.stroke();
+            }
+
+            // Glow effect
+            this.ctx.shadowColor = gem.glow;
+            this.ctx.shadowBlur = isSelected ? 18 : 8;
+
+            // Tile Background Card
+            const grad = this.ctx.createLinearGradient(x, y, x, y + size);
+            grad.addColorStop(0, gem.color);
+            grad.addColorStop(1, '#0f172a');
+
+            this.ctx.fillStyle = grad;
+            this.roundRect(x, y, size, size, 14);
+            this.ctx.fill();
+
+            // Distinct Border for Tile Visibility
+            this.ctx.strokeStyle = gem.lightColor;
+            this.ctx.lineWidth = 2;
+            this.roundRect(x + 1, y + 1, size - 2, size - 2, 12);
+            this.ctx.stroke();
+
+            // Distinct Geometric Shape & Icon Rendering
+            if (tile.booster) {
+              this.drawBoosterIcon(tile.booster, cx, cy);
+            } else {
+              this.drawAccessibleShape(gem.shape, cx, cy, size * 0.3, gem.lightColor);
+
+              // Center Icon Symbol
+              this.ctx.fillStyle = '#ffffff';
+              this.ctx.font = '900 20px "Font Awesome 6 Free"';
+              this.ctx.textAlign = 'center';
+              this.ctx.textBaseline = 'middle';
+
+              let iconUnicode = '\uf3a5'; // gem
+              if (gem.id === 0) iconUnicode = '\uf3a5'; // gem
+              if (gem.id === 1) iconUnicode = '\uf4d2'; // shield
+              if (gem.id === 2) iconUnicode = '\uf4d8'; // clover
+              if (gem.id === 3) iconUnicode = '\uf005'; // star
+              if (gem.id === 4) iconUnicode = '\uf004'; // heart
+
+              this.ctx.fillText(iconUnicode, cx, cy);
+            }
+
+            this.ctx.restore();
+          }
+        }
+      }
+
+      drawAccessibleShape(shape, cx, cy, r, lightColor) {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        this.ctx.strokeStyle = lightColor;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+
+        if (shape === 'diamond') { // Ruby
+          this.ctx.moveTo(cx, cy - r * 1.1);
+          this.ctx.lineTo(cx + r * 1.1, cy);
+          this.ctx.lineTo(cx, cy + r * 1.1);
+          this.ctx.lineTo(cx - r * 1.1, cy);
+        } else if (shape === 'shield') { // Shield
+          this.ctx.moveTo(cx - r, cy - r);
+          this.ctx.lineTo(cx + r, cy - r);
+          this.ctx.lineTo(cx + r, cy);
+          this.ctx.quadraticCurveTo(cx, cy + r * 1.2, cx - r, cy);
+        } else if (shape === 'square') { // Clover / Square
+          this.ctx.rect(cx - r * 0.85, cy - r * 0.85, r * 1.7, r * 1.7);
+        } else if (shape === 'star') { // Star shape
+          for (let i = 0; i < 5; i++) {
+            this.ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r * 1.2 + cx, -Math.sin((18 + i * 72) * Math.PI / 180) * r * 1.2 + cy);
+            this.ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * r * 0.6 + cx, -Math.sin((54 + i * 72) * Math.PI / 180) * r * 0.6 + cy);
+          }
+        } else if (shape === 'heart') { // Heart
+          this.ctx.arc(cx - r * 0.4, cy - r * 0.3, r * 0.5, Math.PI, 0, false);
+          this.ctx.arc(cx + r * 0.4, cy - r * 0.3, r * 0.5, Math.PI, 0, false);
+          this.ctx.lineTo(cx, cy + r * 0.9);
+        }
+
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
+      }
+
+      drawBoosterIcon(boosterType, cx, cy) {
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '900 24px "Font Awesome 6 Free"';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+
+        let iconCode = '\uf3ed';
+        if (boosterType === BOOSTERS.ROCKET_H) iconCode = '\uf135';
+        if (boosterType === BOOSTERS.ROCKET_V) iconCode = '\uf135';
+        if (boosterType === BOOSTERS.PROPELLER) iconCode = '\uf863';
+        if (boosterType === BOOSTERS.TNT) iconCode = '\uf1e2';
+        if (boosterType === BOOSTERS.CROWN) iconCode = '\uf521';
+
+        this.ctx.fillText(iconCode, cx, cy);
+      }
+
+      drawParticles() {
+        this.particles.forEach(p => {
+          this.ctx.save();
+          this.ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+          this.ctx.fillStyle = p.color;
+          this.ctx.beginPath();
+          this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+        });
+      }
+
+      drawFloatingText() {
+        this.floatingTexts.forEach(ft => {
+          this.ctx.save();
+          this.ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+          this.ctx.fillStyle = ft.color;
+          this.ctx.font = '800 20px Outfit';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(ft.text, ft.x, ft.y);
+          this.ctx.restore();
+        });
+      }
+
+      roundRect(x, y, w, h, r) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + r, y);
+        this.ctx.arcTo(x + w, y, x + w, y + h, r);
+        this.ctx.arcTo(x + w, y + h, x, y + h, r);
+        this.ctx.arcTo(x, y + h, x, y, r);
+        this.ctx.arcTo(x, y, x + w, y, r);
+        this.ctx.closePath();
+      }
+    }
+
+    // Coordinates conversion helpers
+    function cToX(col) { return col * TILE_SIZE + TILE_SIZE / 2; }
+    function rToY(row) { return row * TILE_SIZE + TILE_SIZE / 2; }
+
+    // Start Game Instance on DOM Ready
+    window.addEventListener('DOMContentLoaded', () => {
+      window.royalGame = new RoyalMatchGame();
+    });
+  </script>
+</body>
+</html>
